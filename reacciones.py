@@ -1,12 +1,27 @@
 import random
 import asyncio
 import os
-import sys
 import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from flask import Flask
 
 from telethon import TelegramClient, functions, types
 from telethon.sessions import StringSession
+
+# 🔥 SERVIDOR PARA RENDER
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot activo"
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
+def iniciar_web():
+    t = threading.Thread(target=run_web)
+    t.start()
+
 
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
@@ -23,49 +38,37 @@ CHANNELS = [
     -1003151989995
 ]
 
-EMOJIS = ["👍","🔥","💯","😎","🤝","👏"]
+EMOJIS = ["👍", "❤", "🔥", "🥰", "👏", "🐳", "🤯", "😱", "🎉", "🤩",
+    "🙏", "👌", "😍", "💯", "🏆", "🍾", "🤓", "🤝", "😘", "😎"]
 
 client1 = TelegramClient(StringSession(SESSION_1), API_ID, API_HASH)
 client2 = TelegramClient(StringSession(SESSION_2), API_ID, API_HASH)
 client3 = TelegramClient(StringSession(SESSION_3), API_ID, API_HASH)
 
 
-# 🔥 SERVIDOR FALSO PARA RENDER
-def keep_alive():
-    class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b'Bot activo')
-
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), Handler)
-    server.serve_forever()
-
-
-def iniciar_web():
-    t = threading.Thread(target=keep_alive)
-    t.start()
-
-
 async def reaccionar(client, nombre):
+    ultimo_id_por_canal = {}
     print(f"{nombre} activo", flush=True)
-    sys.stdout.flush()
 
-    mensajes_procesados = set()
+    # 🔥 obtener último mensaje actual (punto de inicio)
+    for canal in CHANNELS:
+        async for msg in client.iter_messages(canal, limit=1):
+            ultimo_id_por_canal[canal] = msg.id
 
     while True:
         try:
             for canal in CHANNELS:
-                async for msg in client.iter_messages(canal, limit=5):
 
-                    if msg.id in mensajes_procesados:
-                        continue
+                async for msg in client.iter_messages(
+                    canal,
+                    min_id=ultimo_id_por_canal.get(canal, 0)
+                ):
 
                     if msg.text is None:
                         continue
 
-                    mensajes_procesados.add(msg.id)
+                    # actualizar último id
+                    ultimo_id_por_canal[canal] = msg.id
 
                     emoji = random.choice(EMOJIS)
 
@@ -81,10 +84,7 @@ async def reaccionar(client, nombre):
 
                     print(f"{nombre} reaccionó en {canal}: {emoji}", flush=True)
 
-            if len(mensajes_procesados) > 5000:
-                mensajes_procesados.clear()
-
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)
 
         except Exception as e:
             print(f"Error en {nombre}: {e}", flush=True)
@@ -92,7 +92,6 @@ async def reaccionar(client, nombre):
 
 
 async def main():
-    # 🔥 activar servidor falso
     iniciar_web()
 
     await client1.connect()
