@@ -2,6 +2,9 @@ import random
 import asyncio
 import os
 import sys
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from telethon import TelegramClient, functions, types
 from telethon.sessions import StringSession
 
@@ -27,6 +30,24 @@ client2 = TelegramClient(StringSession(SESSION_2), API_ID, API_HASH)
 client3 = TelegramClient(StringSession(SESSION_3), API_ID, API_HASH)
 
 
+# 🔥 SERVIDOR FALSO PARA RENDER
+def keep_alive():
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'Bot activo')
+
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), Handler)
+    server.serve_forever()
+
+
+def iniciar_web():
+    t = threading.Thread(target=keep_alive)
+    t.start()
+
+
 async def reaccionar(client, nombre):
     print(f"{nombre} activo", flush=True)
     sys.stdout.flush()
@@ -38,7 +59,6 @@ async def reaccionar(client, nombre):
             for canal in CHANNELS:
                 async for msg in client.iter_messages(canal, limit=5):
 
-                    # evitar repetir mensajes
                     if msg.id in mensajes_procesados:
                         continue
 
@@ -49,7 +69,6 @@ async def reaccionar(client, nombre):
 
                     emoji = random.choice(EMOJIS)
 
-                    # delay más humano
                     delay = random.randint(20, 60)
                     print(f"{nombre} esperando {delay}s", flush=True)
                     await asyncio.sleep(delay)
@@ -62,7 +81,6 @@ async def reaccionar(client, nombre):
 
                     print(f"{nombre} reaccionó en {canal}: {emoji}", flush=True)
 
-            # limpiar memoria si crece mucho
             if len(mensajes_procesados) > 5000:
                 mensajes_procesados.clear()
 
@@ -74,6 +92,9 @@ async def reaccionar(client, nombre):
 
 
 async def main():
+    # 🔥 activar servidor falso
+    iniciar_web()
+
     await client1.connect()
     await client2.connect()
     await client3.connect()
